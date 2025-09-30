@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Tokenization & Generation Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      color: #333;
+      margin-top: 0;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .section {
+      margin-top: 25px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border-left: 4px solid #4CAF50;
+    }
+
+    .section h3 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    .tokens {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .token {
+      background: #e3f2fd;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #90caf9;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .token-text {
+      font-weight: bold;
+    }
+
+    .token-id {
+      font-size: 10px;
+      color: #666;
+      background: white;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    .generation {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    .generating-token {
+      display: inline-block;
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .prob-table {
+      margin-top: 15px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    .prob-bar {
+      background: #e0e0e0;
+      height: 20px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 4px 0;
+      position: relative;
+    }
+
+    .prob-fill {
+      background: linear-gradient(90deg, #4CAF50, #8BC34A);
+      height: 100%;
+      transition: width 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      color: white;
+      font-weight: bold;
+      font-size: 11px;
+    }
+
+    .token-info {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .logit {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+    }
+
+    .context-box {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      padding: 12px;
+      border-radius: 6px;
+      margin: 10px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    .formula {
+      background: white;
+      padding: 8px;
+      border-radius: 4px;
+      margin: 8px 0;
+      border-left: 3px solid #4CAF50;
+    }
+
+    .highlight {
+      background: #ffeb3b;
+      padding: 2px 4px;
+      border-radius: 2px;
+      font-weight: bold;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.2em;
+      background: #4CAF50;
+      animation: blink 1s infinite;
+      margin-left: 2px;
+    }
+
+    @keyframes blink {
+
+      0%,
+      50% {
+        opacity: 1;
+      }
+
+      51%,
+      100% {
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>🤖 LLM Generation Demo</h1>
+    <p>Enter a prompt and watch as it gets tokenized and generates a response with probability distributions!</p>
+
+    <textarea id="inputText" rows="3" placeholder="Enter your prompt here... (e.g., 'The weather today is')"></textarea>
+
+    <div style="margin: 15px 0; padding: 15px; background: #f0f0f0; border-radius: 8px;">
+      <label for="speedSlider" style="font-weight: 500; color: #333;">Generation Speed: <span
+          id="speedValue">400ms</span></label>
+      <input type="range" id="speedSlider" min="100" max="2000" value="400" step="100"
+        style="width: 100%; margin-top: 8px;">
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 4px;">
+        <span>Fast (100ms)</span>
+        <span>Slow (2000ms)</span>
+      </div>
+    </div>
+
+    <button onclick="generate()" id="generateBtn">Generate Response</button>
+
+    <div id="tokenSection" style="display: none;" class="section">
+      <h3>📝 Input Tokens</h3>
+      <div id="tokenDisplay" class="tokens"></div>
+    </div>
+
+    <div id="outputSection" style="display: none;" class="section">
+      <h3>✨ Generated Response</h3>
+      <div id="generatedText" class="generation"></div>
+    </div>
+
+    <div id="probSection" style="display: none;" class="section">
+      <h3>📊 Token Probabilities (Top 5)</h3>
+      <div id="probDisplay"></div>
+    </div>
+
+    <div id="contextSection" style="display: none;" class="section">
+      <h3>🧠 How Token IDs Create Probabilities</h3>
+      <div id="contextExplanation" style="font-size: 14px; line-height: 1.6;"></div>
+    </div>
+  </div>
+
+  <script>
+    // Update speed display
+    const speedSlider = document.getElementById('speedSlider');
+    const speedValue = document.getElementById('speedValue');
+    speedSlider.addEventListener('input', (e) => {
+      speedValue.textContent = e.target.value + 'ms';
+    });
+
+    // Simulated tokenizer
+    function tokenize(text) {
+      // Simple word-based tokenization with subword splits
+      const words = text.trim().split(/\s+/);
+      const tokens = [];
+      words.forEach(word => {
+        if (word.length > 6) {
+          // Split longer words into subwords
+          const mid = Math.floor(word.length / 2);
+          tokens.push(word.slice(0, mid), word.slice(mid));
+        } else {
+          tokens.push(word);
+        }
+      });
+      return tokens;
+    }
+
+    // Generate token IDs (simulated)
+    function getTokenId(token) {
+      let hash = 0;
+      for (let i = 0; i < token.length; i++) {
+        hash = ((hash << 5) - hash) + token.charCodeAt(i);
+        hash = hash & hash; // Convert to 32bit integer
+      }
+      return Math.abs(hash) % 50000; // Simulate vocab size of 50k
+    }
+
+    // Response templates based on common prompts
+    const responses = {
+      weather: ['sunny and warm', 'cloudy with a chance of rain', 'perfect for outdoor activities', 'quite pleasant', 'unusually cold'],
+      hello: ['there! How can I help you?', 'friend! What brings you here?', '! Nice to meet you.', '! How are you doing?'],
+      write: ['a story about adventure', 'code to solve this problem', 'an essay on the topic', 'a poem about nature'],
+      explain: ['how neural networks work', 'the concept of machine learning', 'this in simple terms', 'the differences between'],
+      default: ['interesting', 'quite fascinating', 'worth exploring further', 'a complex topic', 'something to consider']
+    };
+
+    function getResponseWords(prompt) {
+      const lower = prompt.toLowerCase();
+      if (lower.includes('weather')) return responses.weather;
+      if (lower.includes('hello') || lower.includes('hi')) return responses.hello;
+      if (lower.includes('write')) return responses.write;
+      if (lower.includes('explain')) return responses.explain;
+      return responses.default;
+    }
+
+    function generateProbabilities(numTokens = 5) {
+      const logits = [];
+      const probs = [];
+
+      // Generate random logits (pre-softmax values)
+      for (let i = 0; i < numTokens; i++) {
+        const logit = (Math.random() * 8) - 2; // Range from -2 to 6
+        logits.push(logit);
+      }
+
+      // Apply softmax to get probabilities
+      const maxLogit = Math.max(...logits);
+      const expLogits = logits.map(l => Math.exp(l - maxLogit));
+      const sumExp = expLogits.reduce((a, b) => a + b, 0);
+      const probabilities = expLogits.map(e => e / sumExp);
+
+      // Return both logits and probabilities, sorted by probability
+      const combined = logits.map((logit, idx) => ({
+        logit: logit,
+        prob: probabilities[idx]
+      }));
+
+      combined.sort((a, b) => b.prob - a.prob);
+
+      return combined;
+    }
+
+    async function generate() {
+      const input = document.getElementById('inputText').value.trim();
+      if (!input) {
+        alert('Please enter some text!');
+        return;
+      }
+
+      const btn = document.getElementById('generateBtn');
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+
+      // Show and populate input tokens
+      const tokens = tokenize(input);
+      const tokenSection = document.getElementById('tokenSection');
+      const tokenDisplay = document.getElementById('tokenDisplay');
+      tokenDisplay.innerHTML = tokens.map(t => {
+        const id = getTokenId(t);
+        return `<span class="token">
+          <span class="token-text">${t}</span>
+          <span class="token-id">ID: ${id}</span>
+        </span>`;
+      }).join('');
+      tokenSection.style.display = 'block';
+
+      // Wait a moment
+      await sleep(500);
+
+      // Generate response
+      const outputSection = document.getElementById('outputSection');
+      const generatedText = document.getElementById('generatedText');
+      const probSection = document.getElementById('probSection');
+      const probDisplay = document.getElementById('probDisplay');
+      const contextSection = document.getElementById('contextSection');
+      const contextExplanation = document.getElementById('contextExplanation');
+
+      outputSection.style.display = 'block';
+      probSection.style.display = 'block';
+      contextSection.style.display = 'block';
+      generatedText.innerHTML = '';
+
+      const responseOptions = getResponseWords(input);
+      const responseText = responseOptions[Math.floor(Math.random() * responseOptions.length)];
+      const responseTokens = tokenize(responseText);
+
+      // Initialize the context explanation with header
+      const inputIds = tokens.map(t => getTokenId(t));
+      contextExplanation.innerHTML = `
+        <div class="context-box">
+          <strong>🎯 Generation Process</strong><br><br>
+          <strong>Your input (as IDs):</strong> [${inputIds.join(', ')}]
+        </div>
+        <div id="scoresList" style="margin-top: 15px;"></div>
+      `;
+
+      // Generate tokens one by one
+      for (let i = 0; i < responseTokens.length; i++) {
+        const token = responseTokens[i];
+
+        // Generate and show probabilities
+        const candidateTokens = [token];
+        const vocab = ['the', 'is', 'and', 'very', 'quite', 'really', 'also', 'more', 'some', 'about'];
+        for (let j = 0; j < 4; j++) {
+          candidateTokens.push(vocab[Math.floor(Math.random() * vocab.length)]);
+        }
+
+        const probData = generateProbabilities(5);
+        const candidateIds = candidateTokens.map(t => getTokenId(t));
+
+        // Append this token's scores to the list
+        const scoresList = document.getElementById('scoresList');
+        const scoresHTML = `
+          <div class="formula">
+            <strong>📐 Token #${i + 1} - Calculating scores:</strong><br><br>
+            <span style="margin-left: 20px;">• <span class="highlight">${candidateIds[0]}</span> ("${candidateTokens[0]}") gets score: <span class="highlight">${probData[0].logit.toFixed(2)}</span></span><br>
+            <span style="margin-left: 20px;">• ${candidateIds[1]} ("${candidateTokens[1]}") gets score: ${probData[1].logit.toFixed(2)}</span><br>
+            <span style="margin-left: 20px;">• ${candidateIds[2]} ("${candidateTokens[2]}") gets score: ${probData[2].logit.toFixed(2)}</span><br>
+            <span style="margin-left: 20px;">• ${candidateIds[3]} ("${candidateTokens[3]}") gets score: ${probData[3].logit.toFixed(2)}</span><br>
+            <span style="margin-left: 20px;">• ${candidateIds[4]} ("${candidateTokens[4]}") gets score: ${probData[4].logit.toFixed(2)}</span><br>
+            <span style="margin-left: 20px; font-size: 11px; color: #666;">...and 49,995 other possible tokens</span><br><br>
+            <strong>Winner:</strong> Token <span class="highlight">${candidateIds[0]}</span> ("${candidateTokens[0]}") with ${(probData[0].prob * 100).toFixed(1)}% chance!
+          </div>
+        `;
+        scoresList.innerHTML += scoresHTML;
+
+        probDisplay.innerHTML = candidateTokens.map((t, idx) => `
+          <div class="prob-bar">
+            <div class="prob-fill" style="width: ${probData[idx].prob * 100}%">
+              <div class="token-info">
+                <span>${t}</span>
+                <span class="logit">ID: ${candidateIds[idx]}</span>
+                <span class="logit">Logit: ${probData[idx].logit.toFixed(2)}</span>
+              </div>
+              <span>${(probData[idx].prob * 100).toFixed(1)}%</span>
+            </div>
+          </div>
+        `).join('');
+
+        const speed = parseInt(document.getElementById('speedSlider').value);
+        await sleep(speed);
+
+        // Add token to output
+        const span = document.createElement('span');
+        span.className = 'generating-token';
+        span.textContent = (i > 0 ? ' ' : '') + token;
+        generatedText.appendChild(span);
+
+        // Add cursor
+        const cursor = document.createElement('span');
+        cursor.className = 'cursor';
+        generatedText.appendChild(cursor);
+      }
+
+      // Remove cursor
+      const cursors = generatedText.getElementsByClassName('cursor');
+      while (cursors.length > 0) {
+        cursors[0].remove();
+      }
+
+      probDisplay.innerHTML = '<p style="color: #666; margin: 0;">Generation complete!</p>';
+
+      btn.disabled = false;
+      btn.textContent = 'Generate Response';
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+  </script>
+</body>
+
+</html>
