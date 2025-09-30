@@ -14,13 +14,7 @@ An interactive web-based demonstration showing how Large Language Models (LLMs) 
 
 ## 🚀 Live Demo
 
-Vercel: https://llm-demo-ten.vercel.app/
-
-## Screenshot
-
-![LLM Demo Screenshot](https://via.placeholder.com/800x500?text=LLM+Demo+Screenshot)
-
-*Replace with actual screenshot once deployed*
+## Vercel: https://llm-demo-ten.vercel.app/
 
 ## How It Works
 
